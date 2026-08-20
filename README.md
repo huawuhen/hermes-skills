@@ -8,6 +8,7 @@
 |---|---|---|
 | [longterm-memory](skills/longterm-memory/) | Hermes 原生长期记忆纪律(分层文件存储 + WAL 先写后答 + 每周卫生清理) | 用户纠正、决策、偏好需要跨会话留存;长任务推进中不想丢上下文;“我们之前关于 X 怎么定的” |
 | [website-research](skills/website-research/) | 网站/平台调研与投放评估 | “调研这个网站”、“它的访问量、用户画像”、“领导想在上面投作品/投放/合作”、“整理一份报告,尽量以图表形式展现” |
+| [fund-analysis](skills/fund-analysis/) | 基金分析:抓取天天基金网数据并生成 HTML 分析报告 | “分析基金 005827”、“帮我分析基金 012805”、“基金分析 XXX” |
 
 ## 安装方法
 
@@ -21,6 +22,10 @@ cp -r skills/longterm-memory ~/.hermes/skills/note-taking/
 # 安装 website-research 技能
 mkdir -p ~/.hermes/skills/research/
 cp -r skills/website-research ~/.hermes/skills/research/
+
+# 安装 fund-analysis 技能(依赖 numpy,python3 -m pip install numpy 或 uv pip install numpy)
+mkdir -p ~/.hermes/skills/investment/
+cp -r skills/fund-analysis ~/.hermes/skills/investment/
 ```
 
 重启/刷新 Hermes 后技能即可被自动加载。
@@ -78,6 +83,34 @@ cd /path/to/project && python3 charts_template.py && python3 report_template.py
 ```
 
 完整工作流与报告规范见各技能 `SKILL.md`。
+
+### fund-analysis 📊
+
+输入 6 位基金代码,抓取天天基金网历史净值,用确定性脚本计算多维指标(净值走势、压力/支撑位、周期涨跌幅、收益反转、月度收益、最大回撤、波动率),生成 PPT 风格 HTML 报告,再由 Agent 补上数据解读与投资建议:
+
+```
+fund-analysis/
+├── SKILL.md                        # 技能主文件(触发条件 + 6 步流程 + 算法说明 + 踩坑)
+└── scripts/
+    └── fund_analyzer.py            # 数据解析 + 指标计算 + HTML 报告生成(唯一依赖 numpy)
+```
+
+```bash
+# 1. 建目录 & 抓取原始数据(eastmoney pingzhongdata 接口)
+mkdir -p output_fund/{代码}/raw output_fund/{代码}/analysis output_fund/{代码}/report
+curl -s "https://fund.eastmoney.com/pingzhongdata/{代码}.js?v=$(date +%Y%m%d%H%M%S)" \
+  -H "Referer: https://fund.eastmoney.com/" -o output_fund/{代码}/raw/{代码}_raw.js
+
+# 2. 运行分析
+python3 scripts/fund_analyzer.py --code {代码} \
+  --input output_fund/{代码}/raw/{代码}_raw.js \
+  --output output_fund/{代码}/report/report_{代码}.html \
+  --json-output output_fund/{代码}/analysis/analysis_{代码}.json
+
+# 3. 产出:HTML 报告(浏览器打开,可导出 PDF)+ 结构化 JSON
+```
+
+数据分析全走确定性脚本(避免 LLM 幻觉),LLM 只负责解读。压力/支撑位按历史净值 10 档位统计上涨/下跌概率判定,属经验性参考,非严格技术指标。
 
 ## 报告产出规格(website-research 领导层验收标准)
 
